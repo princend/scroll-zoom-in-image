@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Canvas 滾動圖片序列動畫</title>
+  <style>
+    body {
+      margin: 0;
+      height: 300vh; /* 增加頁面高度以測試滾動 */
+    }
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script>
+    // ======== 配置參數 ========
+    const FRAME_COUNT = 200;       // 圖片總幀數
+    const FRAME_PREFIX = 'graded_4K_100_gm_50_1080_3-';  // 圖片名前綴
+    const FRAME_SUFFIX = '.jpg';   // 圖片後綴
+    const SMOOTH_FACTOR = 0.15;    // 平滑過渡係數 (0.1-0.3)
+
+    // ======== 核心變量初始化 ========
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const images = new Array(FRAME_COUNT).fill(null);
+    let targetFrame = 0;
+    let currentFrame = 0;
+    let isAnimating = false;
+    let lastScrollTime = 0;
+
+    // ======== 畫布尺寸調整 ========
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ======== 圖片預加載 ========
+    function preloadImages() {
+      for (let i = 0; i < FRAME_COUNT; i++) {
+        images[i] = new Image();
+        // 使用三位數編碼 (001, 002...)
+        const frameNumber = String(i).padStart(3, '0');
+        images[i].src = `${FRAME_PREFIX}${frameNumber}${FRAME_SUFFIX}`;
+      }
+    }
+
+    // ======== 滾動事件處理 ========
+    function handleScroll() {
+      const now = Date.now();
+      // 節流處理：每16ms處理一次 (約60fps)
+      if (now - lastScrollTime < 16) return;
+      
+      lastScrollTime = now;
+      
+      const scrollTop = document.documentElement.scrollTop;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercent = scrollTop / maxScroll;
+      
+      // 計算目標幀 (0 到 FRAME_COUNT-1)
+      targetFrame = Math.floor(scrollPercent * (FRAME_COUNT - 1));
+      
+      // 啟動動畫循環
+      if (!isAnimating) {
+        isAnimating = true;
+        requestAnimationFrame(animate);
+      }
+    }
+
+    // ======== 動畫渲染循環 ========
+    function animate() {
+      // 使用線性插值實現平滑過渡
+      currentFrame += (targetFrame - currentFrame) * SMOOTH_FACTOR;
+      
+      // 當接近目標幀時停止動畫
+      if (Math.abs(targetFrame - currentFrame) < 0.01) {
+        currentFrame = targetFrame;
+        isAnimating = false;
+      } else {
+        requestAnimationFrame(animate);
+      }
+      
+      renderFrame(Math.floor(currentFrame));
+    }
+
+    // ======== 渲染當前幀 ========
+    function renderFrame(frameIndex) {
+      const img = images[frameIndex];
+      if (!img || !img.complete) return;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 保持圖片比例居中顯示
+      const scale = Math.max(
+        canvas.width / img.width,
+        canvas.height / img.height
+      );
+      
+      const width = img.width * scale;
+      const height = img.height * scale;
+      const x = (canvas.width - width) / 2;
+      const y = (canvas.height - height) / 2;
+      
+      ctx.drawImage(img, x, y, width, height);
+    }
+
+    // ======== 初始化執行 ========
+    preloadImages();
+    window.addEventListener('scroll', handleScroll);
+    // 初始渲染
+    renderFrame(0);
+  </script>
+</body>
+</html>
